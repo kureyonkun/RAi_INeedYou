@@ -206,6 +206,12 @@ def send_pushover(message: str) -> tuple[bool, str]:
     return False, f"Pushover error: {errors}"
 
 
+def prefill() -> str:
+    """Starting text for the message box, e.g. "Alex: " from ?name=Alex."""
+    name = st.query_params.get("name", "").strip()
+    return f"{name}: "[:MAX_CHARS] if name else ""
+
+
 def on_press():
     now = time.time()
     remaining = COOLDOWN_SECONDS - (now - st.session_state.get("last_sent", 0))
@@ -213,15 +219,22 @@ def on_press():
         st.session_state.result = (False, f"Easy there! Wait {int(remaining) + 1}s before pressing again.")
         return
 
-    message = st.session_state.get("message", "").strip()[:MAX_CHARS] or DEFAULT_MESSAGE
+    message = st.session_state.get("message", "").strip()[:MAX_CHARS]
+    name = st.query_params.get("name", "").strip()
+    if name and message == prefill().strip():
+        message = f"🔴 {name} pressed the big red button!"  # name only, nothing typed
+    message = message or DEFAULT_MESSAGE
     ok, info = send_pushover(message)
     st.session_state.result = (ok, info)
     if ok:
         st.session_state.last_sent = now
-        st.session_state.message = ""  # clear the textbox after a successful send
+        st.session_state.message = prefill()  # reset the textbox after a successful send
 
 
 result = st.session_state.pop("result", None)
+
+if "message" not in st.session_state:
+    st.session_state.message = prefill()
 
 with st.container(key="stage"):
     with st.container(key="above"):
