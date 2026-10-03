@@ -13,34 +13,56 @@ st.set_page_config(page_title="Big Red Button", page_icon="🔴", layout="center
 st.markdown(
     """
     <style>
-    /* Pin the button dead center of the viewport */
-    .st-key-big_red {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: auto !important;
-        z-index: 10;
+    /* Hide the empty block this <style> tag lives in */
+    .stElementContainer:has(style) {
+        display: none;
     }
 
-    /* Message box sits just above the button */
-    .st-key-above {
-        position: fixed;
-        bottom: calc(50% + 230px);
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(560px, 92vw) !important;
-        z-index: 10;
+    /* Even top/bottom padding so the page's center is the screen's center */
+    .block-container,
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 3.5rem !important;
+        padding-bottom: 3.5rem !important;
     }
 
-    /* Note sits just below the button */
+    /* Three rows (message / button / note). The equal outer rows keep the
+       button dead center; on small screens the page simply scrolls. */
+    .st-key-stage {
+        --btn: clamp(190px, 62vw, 260px);
+        display: grid !important;
+        grid-template-rows: 1fr auto 1fr;
+        row-gap: 2.5rem;
+        min-height: calc(100vh - 7rem);
+        min-height: calc(100dvh - 7rem);
+        overflow-x: clip;
+    }
+
+    .st-key-stage > * {
+        width: 100%;
+    }
+
+    .st-key-stage > :first-child {
+        align-self: end;
+    }
+
+    .st-key-stage > :last-child {
+        align-self: start;
+    }
+
+    .st-key-above,
     .st-key-below {
-        position: fixed;
-        top: calc(50% + 260px);
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(560px, 92vw) !important;
-        z-index: 10;
+        width: min(560px, 100%) !important;
+        margin: 0 auto;
+    }
+
+    /* 16px stops iPhones from zooming in when the box is tapped */
+    .st-key-above textarea {
+        font-size: 16px !important;
+        line-height: 1.5 !important;
+    }
+
+    .st-key-below {
+        padding-top: 0.75rem;
     }
 
     .st-key-below .note {
@@ -49,13 +71,23 @@ st.markdown(
         line-height: 1.5;
         opacity: 0.8;
         font-style: italic;
-        margin-top: 0.25rem;
+        margin: 0;
+    }
+
+    .st-key-btnwrap {
+        position: relative;
+        align-items: center;
+    }
+
+    .st-key-big_red {
+        display: flex;
+        justify-content: center;
     }
 
     /* The big red button itself */
     .st-key-big_red button {
-        width: 260px;
-        height: 260px;
+        width: var(--btn);
+        height: var(--btn);
         border-radius: 50% !important;
         border: 6px solid #7a0000 !important;
         background: radial-gradient(circle at 35% 30%, #ff6b6b 0%, #e60000 45%, #a30000 100%) !important;
@@ -69,10 +101,11 @@ st.markdown(
         animation: pulse 2.2s ease-in-out infinite;
         cursor: pointer;
         user-select: none;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .st-key-big_red button p {
-        font-size: 1.9rem !important;
+        font-size: clamp(1.35rem, 6.5vw, 1.9rem) !important;
         font-weight: 900 !important;
         line-height: 1.2;
         letter-spacing: 0.04em;
@@ -118,13 +151,18 @@ st.markdown(
     }
 
     /* Shockwave ring shown once after a successful send */
+    .st-key-btnwrap .stElementContainer:has(.shockwave) {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
     .shockwave {
-        position: fixed;
+        position: absolute;
         left: 50%;
         top: 50%;
-        width: 260px;
-        height: 260px;
-        margin: -130px 0 0 -130px;
+        width: var(--btn);
+        height: var(--btn);
         border-radius: 50%;
         border: 6px solid rgba(255, 30, 30, 0.8);
         pointer-events: none;
@@ -133,8 +171,8 @@ st.markdown(
     }
 
     @keyframes shock {
-        from { transform: scale(0.8); opacity: 1; }
-        to   { transform: scale(3.5); opacity: 0; }
+        from { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+        to   { transform: translate(-50%, -50%) scale(3.5); opacity: 0; }
     }
     </style>
     """,
@@ -183,29 +221,31 @@ def on_press():
         st.session_state.message = ""  # clear the textbox after a successful send
 
 
-with st.container(key="above"):
-    st.text_input(
-        "Name and Message (optional)",
-        key="message",
-        max_chars=MAX_CHARS,
-        placeholder="Add a short message with your name so RAi knows who to get back to.",
-    )
-
-st.button("RAi, I need you!", key="big_red", on_click=on_press)
-
-with st.container(key="below"):
-    st.markdown(
-        '<p class="note">RAi intentionally stays off social media and messaging apps. '
-        "But if you know about this page, it means you're important to him, and he "
-        "wants you to use this button whenever you need him. So go ahead and press it! 😊</p>",
-        unsafe_allow_html=True,
-    )
-
 result = st.session_state.pop("result", None)
+
+with st.container(key="stage"):
+    with st.container(key="above"):
+        st.text_area(
+            "Name and Message (optional)",
+            key="message",
+            max_chars=MAX_CHARS,
+            height=110,  # roughly three lines
+            placeholder="Add a short message with your name so RAi knows who to get back to.",
+        )
+
+    with st.container(key="btnwrap"):
+        st.button("RAi, I need you!", key="big_red", on_click=on_press)
+        if result and result[0]:
+            st.markdown('<div class="shockwave"></div>', unsafe_allow_html=True)
+
+    with st.container(key="below"):
+        st.markdown(
+            '<p class="note">RAi intentionally stays off social media and messaging apps. '
+            "But if you know about this page, it means you're important to him, and he "
+            "wants you to use this button whenever you need him. So go ahead and press it! 😊</p>",
+            unsafe_allow_html=True,
+        )
+
 if result:
     ok, info = result
-    if ok:
-        st.markdown('<div class="shockwave"></div>', unsafe_allow_html=True)
-        st.toast(info, icon="✅")
-    else:
-        st.toast(info, icon="⚠️")
+    st.toast(info, icon="✅" if ok else "⚠️")
